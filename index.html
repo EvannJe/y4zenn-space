@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mon espace</title>
+<style>
+:root{--bg:#15171d;--c:#1d2028;--b:#2d313c;--t:#e9e6df;--m:#8f93a0;--a:#6fcfb0}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.4 system-ui,sans-serif;background:radial-gradient(60% 50% at 12% 8%,#2b7a70 0,transparent 70%),radial-gradient(50% 45% at 92% 18%,#4d3d99 0,transparent 70%),radial-gradient(55% 50% at 70% 98%,#93503f 0,transparent 70%),#11131a;background-attachment:fixed;color:var(--t);display:flex;min-height:100vh}
+h1{font:600 24px Georgia,serif;margin:0 0 14px}
+nav{width:190px;margin:12px;background:rgba(255,255,255,.07);backdrop-filter:blur(22px) saturate(170%);-webkit-backdrop-filter:blur(22px) saturate(170%);border:1px solid rgba(255,255,255,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 10px 40px rgba(0,0,0,.35);border-radius:24px;padding:14px 10px;position:sticky;top:12px;height:calc(100vh - 24px);overflow-y:auto;display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+nav a{padding:9px 10px;border-radius:8px;color:var(--m);cursor:pointer;text-decoration:none}
+nav a.on,nav a:hover{background:rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.25);color:var(--t)}
+main{flex:1;padding:22px;max-width:920px;margin:auto;width:100%}
+.card{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.04));backdrop-filter:blur(20px) saturate(170%);-webkit-backdrop-filter:blur(20px) saturate(170%);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 32px rgba(0,0,0,.28);border-radius:20px;padding:16px;margin:0 0 14px}
+input,select,textarea,button{font:inherit;background:rgba(255,255,255,.07);color:var(--t);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:8px 11px;margin:2px}option{background:#1d2028}
+:focus-visible{outline:2px solid var(--a)}
+button{background:var(--a);color:#10221c;border:0;cursor:pointer;font-weight:600}
+button.g{background:rgba(255,255,255,.12);color:var(--t);font-weight:400}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.sp{justify-content:space-between}nav hr{border:0;border-top:1px solid rgba(255,255,255,.2);margin:8px 6px;flex-shrink:0}.m{color:var(--m)}
+.e{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--b)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.d{min-height:62px;background:rgba(255,255,255,.06);border-radius:10px;padding:3px;font-size:12px;overflow:hidden}
+.ev{border-radius:4px;padding:1px 4px;margin-top:2px;color:#111;font-size:11px;cursor:pointer}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+@media(max-width:700px){nav{position:fixed;bottom:0;left:0;margin:8px;width:calc(100% - 16px);top:auto;height:auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;border-radius:22px;z-index:5}nav a{white-space:nowrap}main{padding:14px 12px 76px}nav hr{border-top:0;border-left:1px solid rgba(255,255,255,.2);margin:4px 6px;align-self:stretch}}
+</style></head><body>
+<nav id="nav"></nav><main id="main"></main>
+<script>
+/* SYNCHRONISATION GOOGLE : colle ici la configuration Firebase (voir les étapes données dans le chat) */
+window.FIREBASE_CONFIG={apiKey:"",authDomain:"",projectId:"",appId:""};
+</script>
+<script>
+const $=s=>document.querySelector(s);
+let D={};try{D=JSON.parse(localStorage.getItem('espace')||'{}')}catch(e){}
+const save=r=>{let ok=true;if(!r)D.u=Date.now();try{localStorage.setItem('espace',JSON.stringify(D))}catch(e){ok=false}if(!r&&window.push)push();return ok};
+const ls=k=>D[k]||(D[k]=[]);
+const today=()=>new Date().toISOString().slice(0,10);
+let M=today().slice(0,7),V='mois',W=today(),Q='';
+const CAT={perso:'#6fcfb0',sport:'#f2a65a',vidéo:'#8aa6ff',autre:'#d6a0e8'};
+// Trackers génériques : f = champs [nom, type|options], y = graphique, nm = sans filtre par mois
+const T={
+ videos:{n:'Stats de mes vidéos',f:[['titre','text'],['vues','number'],['likes','number'],['commentaires','number']],line:1},
+ nutrition:{n:'Total du jour',f:[['kcal','number'],['protéines (g)','number'],['glucides (g)','number'],['lipides (g)','number']],goal:1,line:1},
+ sommeil:{n:'Nuit',f:[['coucher','time'],['réveil','time'],['qualité /5','number']],calc:1},
+ muscu:{n:'Séance',f:[['volume (kg)','number'],['reps','number'],['durée (min)','number']]},
+ poids:{n:'Poids de corps (kg)',f:[['poids','number']],line:1,avg:1},
+ idees:{n:'Idées',f:[['idée','text'],['statut',['à faire','en cours','terminée']]],nm:1},
+ taches:{n:'Tâches',f:[['tâche','text'],['priorité',['haute','moyenne','basse']],['échéance','date'],['statut',['à faire','fait']]],nm:1},
+ finance:{n:'Gain / perte du jour',f:[['montant (€)','number'],['note','text']],tot:1,line:1}
+};
+const hrs=(a,b)=>{if(!a||!b)return 0;let x=(+b.slice(0,2)*60+ +b.slice(3))-(+a.slice(0,2)*60+ +a.slice(3));if(x<0)x+=1440;return Math.round(x/6)/10};
+function add(k){const t=T[k],e={id:Date.now()+Math.random(),date:$('#'+k+'d').value||today()};
+ t.f.forEach(([n],i)=>e[n]=$('#'+k+i).value);
+ if(t.calc)e.durée=hrs(e.coucher,e['réveil']);
+ if(!t.nm&&!t.f.some(([n])=>n)){return}
+ ls(k).push(e);save();go()}
+function del(k,id){D[k]=ls(k).filter(e=>e.id!=id);save();go()}
+function cyc(k,id){const t=T[k],[n,o]=[...t.f].reverse().find(f=>Array.isArray(f[1]));const e=ls(k).find(e=>e.id==id);e[n]=o[(o.indexOf(e[n])+1)%o.length];save();go()}
+function mnav(){return `<div class="row sp"><div><button class="g" onclick="sm(-1)">‹</button><button class="g" onclick="sm(1)">›</button></div><b>${new Date(M+'-15').toLocaleDateString('fr',{month:'long',year:'numeric'})}</b></div>`}
+function sm(n){const d=new Date(M+'-15');d.setMonth(d.getMonth()+n);M=d.toISOString().slice(0,7);go()}
+function chart(E,f){const n=new Date(M.slice(0,4),M.slice(5),0).getDate(),v=Array(n).fill(0),c=Array(n).fill(0);
+ E.forEach(e=>{const i=+e.date.slice(8)-1;if(e[f]!==''&&e[f]!=null){v[i]+=+e[f]||0;c[i]++}});
+ const mx=Math.max(...v,1),mn=Math.min(...v,0),r=(mx-mn)||1,w=100/n,z=39-(0-mn)/r*38;
+ return `<svg viewBox="0 0 100 40" preserveAspectRatio="none" style="width:100%;height:130px;margin-top:8px">`+v.map((x,i)=>`<rect x="${i*w+.25}" y="${x<0?z:z-x/r*38}" width="${w-.5}" height="${Math.abs(x)/r*38}" fill="${x<0?'#f27a7a':'#6fcfb0'}"><title>${i+1} : ${x}</title></rect>`).join('')+`</svg><div class="m">Max ${mx} · moyenne sur jours saisis ${c.filter(x=>x).length?Math.round(v.reduce((a,b)=>a+b)/c.filter(x=>x).length*10)/10:0}</div>`}
+function goalBox(k,E){
+ const kw=ls('poids').sort((a,b)=>a.date<b.date?-1:1).slice(-1)[0],kg=kw?+kw.poids:0,key=M+k,G=(D.goals||(D.goals={}));
+ const g=G[key]||{kcal:kg?Math.round(kg*33):'',p:kg?Math.round(kg*1.8):''};
+ const days=E.length,av=f=>days?Math.round(E.reduce((a,e)=>a+(+e[f]||0),0)/days):0;
+ return `<div class="m" style="margin:8px 0">Objectif du mois (modifiable)${kg?`, proposé d'après ${kg} kg : ~33 kcal/kg et 1,8 g de protéines/kg`:' : saisis ton poids pour une proposition'}</div>
+ <div class="row">kcal <input type="number" id="gk" value="${g.kcal}" style="width:90px"> protéines <input type="number" id="gp" value="${g.p}" style="width:80px"><button class="g" onclick="D.goals['${key}']={kcal:$('#gk').value,p:$('#gp').value};save();go()">Enregistrer</button></div>
+ <div class="m">Moyenne du mois : ${av('kcal')} kcal (objectif ${g.kcal||'–'}) · ${av('protéines (g)')} g de protéines (objectif ${g.p||'–'})</div>`}
+function tr(k,yf){const t=T[k],all=ls(k).sort((a,b)=>a.date<b.date?-1:1),E=t.nm?all:all.filter(e=>e.date.startsWith(M));
+ const num=t.f.map(f=>f[0]).filter((n,i)=>t.f[i][1]=='number').concat(t.calc?['durée']:[]);
+ let h=`<div class="card"><b>${t.n}</b>${t.nm?'':mnav()}<div class="row"><input type="date" id="${k}d" value="${today()}">`;
+ h+=t.f.map(([n,ty],i)=>Array.isArray(ty)?`<select id="${k}${i}">${ty.map(o=>`<option>${o}</option>`).join('')}</select>`:`<input id="${k}${i}" type="${ty}" placeholder="${n}" title="${n}" ${ty=='number'?'step="any"':''} style="width:${ty=='text'?170:105}px">`).join('')+`<button onclick="add('${k}')">Ajouter</button></div>`;
+ if(!t.nm&&num.length){const y=D['y'+k]||yf||num[0];h+=`<div class="row" style="margin-top:6px">Graphique : <select onchange="D['y${k}']=this.value;save();go()">${num.map(n=>`<option ${n==y?'selected':''}>${n}</option>`).join('')}</select></div>`+(t.line?line(E,y,t.avg):chart(E,y))}
+ if(t.tot){const f=a=>Math.round(a.reduce((s,e)=>s+(+e['montant (€)']||0),0)*100)/100,sm=f(E),sa=f(all);h+=`<div style="margin:6px 0"><b style="color:${sm<0?'#f27a7a':'var(--a)'}">Bilan du mois : ${sm>0?'+':''}${sm} €</b> <span class="m">· cumul total : ${sa>0?'+':''}${sa} €</span></div>`}
+ if(t.goal)h+=goalBox(k,E);
+ const cy=t.f.some(f=>Array.isArray(f[1]));
+ h+=E.slice().reverse().map(e=>`<div class="e"><span><span class="m">${e.date.slice(5)}</span> ${t.f.map(([n])=>e[n]!==''&&e[n]!=null?`${n.split(' ')[0]} ${e[n]}`:'').join(' · ')}${t.calc?` · <b>${e.durée} h</b>`:''}</span><span>${cy?`<button class="g" onclick="cyc('${k}',${e.id})">→</button>`:''}<button class="g" onclick="del('${k}',${e.id})">✕</button></span></div>`).join('');
+ return h+'</div>'}
+// Notes
+function notes(){const N=ls('notes'),q=Q.toLowerCase();
+ return `<div class="card"><div class="row"><input id="nt" placeholder="Titre" style="flex:1"><input id="ng" placeholder="Tag / dossier" style="width:130px"></div><textarea id="nx" rows="4" placeholder="Écris ta note…" style="width:100%"></textarea><button onclick="ls('notes').unshift({id:Date.now(),t:$('#nt').value,g:$('#ng').value,x:$('#nx').value,date:today()});save();go()">Enregistrer la note</button></div>
+ <input placeholder="Rechercher (titre, texte, tag)" value="${Q}" oninput="Q=this.value;go('nq')" id="nq" style="width:100%">`+N.filter(n=>!q||(n.t+n.x+n.g).toLowerCase().includes(q)).map(n=>`<div class="card"><div class="row sp"><b>${esc(n.t)||'Sans titre'}</b><span class="m">${n.g?'#'+esc(n.g)+' · ':''}${n.date}<button class="g" onclick="D.notes=D.notes.filter(x=>x.id!=${n.id});save();go()">✕</button></span></div><div style="white-space:pre-wrap">${esc(n.x)}</div></div>`).join('')}
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// Agenda
+const occ=(e,d)=>e.date==d||(e.rep&&e.date<d&&new Date(e.date).getDay()==new Date(d).getDay());
+function agenda(){let days=[],off=0;
+ if(V=='mois'){const n=new Date(M.slice(0,4),M.slice(5),0).getDate();off=(new Date(M+'-01').getDay()+6)%7;for(let i=1;i<=n;i++)days.push(M+'-'+String(i).padStart(2,'0'))}
+ else{const s=new Date(W),o=(s.getDay()+6)%7;s.setDate(s.getDate()-o);for(let i=0;i<7;i++){const d=new Date(s);d.setDate(s.getDate()+i);days.push(d.toISOString().slice(0,10))}}
+ const E=ls('agenda');
+ return `<div class="card"><div class="row"><input type="date" id="ad" value="${today()}"><input id="at" placeholder="Événement" style="width:170px"><select id="ac">${Object.keys(CAT).map(c=>`<option>${c}</option>`).join('')}</select><label class="m"><input type="checkbox" id="ar"> chaque semaine</label><button onclick="E=ls('agenda');if($('#at').value){E.push({id:Date.now(),date:$('#ad').value,t:$('#at').value,c:$('#ac').value,rep:$('#ar').checked});save();go()}">Ajouter</button></div></div>
+ <div class="card"><div class="row sp"><div><button class="${V=='mois'?'':'g'}" onclick="V='mois';go()">Mois</button><button class="${V=='semaine'?'':'g'}" onclick="V='semaine';go()">Semaine</button></div><div>${V=='mois'?`<button class="g" onclick="sm(-1)">‹</button><b> ${M} </b><button class="g" onclick="sm(1)">›</button>`:`<button class="g" onclick="shw(-7)">‹</button><b> ${days[0]} </b><button class="g" onclick="shw(7)">›</button>`}</div></div>
+ <div class="grid" style="margin-top:8px">${['L','M','M','J','V','S','D'].map(d=>`<div class="m" style="text-align:center">${d}</div>`).join('')}${'<div></div>'.repeat(off)}${days.map(d=>`<div class="d" ${d==today()?'style="outline:1px solid var(--a)"':''}>${+d.slice(8)}${E.filter(e=>occ(e,d)).map(e=>`<div class="ev" style="background:${CAT[e.c]}" title="Cliquer pour supprimer" onclick="if(confirm('Supprimer ?')){D.agenda=D.agenda.filter(x=>x.id!=${e.id});save();go()}">${esc(e.t)}</div>`).join('')}</div>`).join('')}</div></div>`}
+function shw(n){const d=new Date(W);d.setDate(d.getDate()+n);W=d.toISOString().slice(0,10);go()}
+function home(){const t=today(),n=ls('nutrition').filter(e=>e.date==t),s=ls('sommeil').slice(-1)[0],ev=ls('agenda').filter(e=>occ(e,t)),op=ls('taches').filter(x=>x.statut!='fait');
+ const sum=f=>n.reduce((a,e)=>a+(+e[f]||0),0);
+ return sync()+`<div class="card"><b>Aujourd'hui</b><div class="e"><span>Calories / protéines</span><span>${sum('kcal')} kcal · ${sum('protéines (g)')} g</span></div><div class="e"><span>Dernière nuit</span><span>${s?s.durée+' h (qualité '+(s['qualité /5']||'–')+')':'–'}</span></div><div class="e"><span>Événements</span><span>${ev.map(e=>esc(e.t)).join(', ')||'aucun'}</span></div><div class="e"><span>Tâches à faire</span><span>${op.length}</span></div><div class="e"><span>Bilan financier du mois</span><span>${Math.round(ls('finance').filter(e=>e.date.startsWith(M)).reduce((a,e)=>a+(+e['montant (€)']||0),0)*100)/100} €</span></div></div>
+ <div class="card"><b>Sauvegarde</b><div class="m">Les données sont enregistrées dans ce navigateur. Exporte-les régulièrement.</div><button onclick="exp()">Exporter</button> <input type="file" accept=".json" onchange="imp(this)"></div>`}
+function cerveau(){const N=ls('cerveau'),q=Q.toLowerCase();
+ return `<div class="card"><div class="row"><input id="bt" placeholder="Nom" style="flex:1;min-width:140px"><select id="bk"><option>lien</option><option>site web</option><option>document</option><option>note</option></select></div><input id="bu" placeholder="Adresse (https://… ou lien Drive du document)" style="width:100%"><input id="bg" placeholder="Mots-clés (séparés par des virgules)" style="width:100%"><textarea id="bn" rows="2" placeholder="Description / résumé" style="width:100%"></textarea><button onclick="if($('#bt').value||$('#bu').value){ls('cerveau').unshift({id:Date.now(),t:$('#bt').value||$('#bu').value,k:$('#bk').value,u:$('#bu').value,g:$('#bg').value,n:$('#bn').value,date:today()});save();go()}">Ranger</button></div>
+ <input id="bq" placeholder="Rechercher par nom ou mot-clé" value="${esc(Q)}" oninput="Q=this.value;go('bq')" style="width:100%;margin-bottom:12px">`+N.filter(n=>!q||(n.t+' '+n.g+' '+n.n+' '+n.u).toLowerCase().includes(q)).map(n=>`<div class="card"><div class="row sp"><b>${/^https?:\/\//i.test(n.u)?`<a href="${esc(n.u)}" target="_blank" rel="noopener" style="color:var(--a)">${esc(n.t)}</a>`:esc(n.t)}</b><span class="m">${n.k}<button class="g" onclick="D.cerveau=D.cerveau.filter(x=>x.id!=${n.id});save();go()">✕</button></span></div>${n.n?`<div>${esc(n.n)}</div>`:''}<div class="m">${n.g?esc(n.g)+' · ':''}${n.date}</div></div>`).join('')}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));a.download='espace-'+today()+'.json';a.click()}
+function imp(i){const r=new FileReader();r.onload=()=>{try{D=JSON.parse(r.result);save();go()}catch(e){alert('Fichier invalide')}};r.readAsText(i.files[0])}
+
+function line(E,f,avg){const n=new Date(M.slice(0,4),M.slice(5),0).getDate(),v={},c={};
+ E.forEach(e=>{if(e[f]!==''&&e[f]!=null&&!isNaN(+e[f])){const i=+e.date.slice(8);v[i]=(v[i]||0)+(+e[f]);c[i]=(c[i]||0)+1}});
+ const ds=Object.keys(v).map(Number).sort((a,b)=>a-b),val=i=>avg?v[i]/c[i]:v[i],vs=ds.map(val);
+ if(!ds.length)return '<div class="m" style="margin-top:8px">Aucune donnée ce mois-ci.</div>';
+ let hi=Math.max(...vs),lo=avg?Math.min(...vs):Math.min(...vs,0);if(!avg)hi=Math.max(hi,0);if(hi==lo){hi+=1;lo-=avg?1:0}
+ const W=600,H=190,L=46,X=i=>L+(n>1?(i-1)/(n-1):0)*(W-L-12),Y=x=>12+(hi-x)/(hi-lo)*(H-38),R=x=>Math.round(x*10)/10;
+ return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;margin-top:8px"><g stroke="rgba(255,255,255,.15)"><line x1="${L}" x2="${W-12}" y1="${Y(hi)}" y2="${Y(hi)}"/><line x1="${L}" x2="${W-12}" y1="${Y(lo)}" y2="${Y(lo)}"/>${lo<0&&hi>0?`<line x1="${L}" x2="${W-12}" y1="${Y(0)}" y2="${Y(0)}" stroke="rgba(255,255,255,.4)"/>`:''}</g><g fill="#8f93a0" font-size="12"><text x="2" y="${Y(hi)+4}">${R(hi)}</text><text x="2" y="${Y(lo)+4}">${R(lo)}</text><text x="${L}" y="${H-6}">1</text><text x="${W-22}" y="${H-6}">${n}</text></g><polyline fill="none" stroke="#6fcfb0" stroke-width="2.5" stroke-linejoin="round" points="${ds.map(i=>X(i)+','+Y(val(i))).join(' ')}"/>${ds.map(i=>`<circle cx="${X(i)}" cy="${Y(val(i))}" r="4.5" fill="${val(i)<0?'#f27a7a':'#6fcfb0'}" stroke="#15171d" stroke-width="1.5"><title>${i} : ${R(val(i))}</title></circle>`).join('')}</svg><div class="m">Max ${R(Math.max(...vs))} · moyenne ${R(vs.reduce((a,b)=>a+b)/vs.length)}</div>`}
+const app=k=>`<div class="card row"><span class="m">Application tierce utilisée :</span><input value="${esc((D.apps||{})[k])}" placeholder="Nom de l'application" onchange="(D.apps||(D.apps={}))['${k}']=this.value;save()" style="flex:1;min-width:160px"></div>`;
+function galerie(){return `<div class="card"><div class="row"><input type="file" accept="image/*" multiple onchange="addPh(this)"><input id="gc" placeholder="Légende (facultatif)" style="flex:1;min-width:140px"></div><div class="m">Les photos sont réduites (1000 px max) pour tenir dans le navigateur.</div></div><div class="cards">`+ls('galerie').map(p=>`<div class="card" style="padding:8px"><img src="${p.s}" alt="${esc(p.c)}" style="width:100%;border-radius:12px;cursor:zoom-in;display:block" onclick="zoom(${p.id})"><div class="row sp"><span class="m">${esc(p.c)||p.date}</span><button class="g" onclick="D.galerie=D.galerie.filter(x=>x.id!=${p.id});save();go()">✕</button></div></div>`).join('')+'</div>'}
+function addPh(i){[...i.files].forEach(f=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1000/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);const cap=$('#gc')?$('#gc').value:'';ls('galerie').unshift({id:Date.now()+Math.random(),s:c.toDataURL('image/jpeg',.72),c:cap,date:today()});if(!save()){D.galerie.shift();alert('Stockage plein : exporte tes données depuis l\'accueil puis supprime des photos.')}go()};im.src=r.result};r.readAsDataURL(f)})}
+function zoom(id){const p=ls('galerie').find(x=>x.id==id),d=document.createElement('div');d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9;cursor:zoom-out';d.innerHTML=`<img src="${p.s}" style="max-width:94%;max-height:94%;border-radius:14px">`;d.onclick=()=>d.remove();document.body.appendChild(d)}
+const ORD=['home','agenda','taches','videos','nutrition','muscu','sommeil','finance','galerie','notes','idees','cerveau'],GR={home:'Général',agenda:'Organisation',videos:'Suivi',galerie:'Créatif',cerveau:'Ressources'};
+const sync=()=>{const c=window.FIREBASE_CONFIG,on=c&&c.apiKey;return `<div class="card"><b>Synchronisation</b><div class="m">${!on?'Non configurée (renseigne le bloc FIREBASE_CONFIG au début du fichier).':window.user?'Connecté : '+esc(window.user.email):'Non connecté : tes données restent sur cet appareil.'}</div>${on?(window.user?'<button class="g" onclick="logout()">Se déconnecter</button>':'<button onclick="login()">Se connecter avec Google</button>'):''}</div>`};
+const PG={home:['Accueil',home],notes:['Notes',notes],agenda:['Agenda',agenda],taches:['Tâches',()=>tr('taches')],idees:['Idées',()=>`<div class="cards">${ls('idees').map(e=>`<div class="card"><b>${esc(e['idée'])}</b><div class="m">${e.statut}</div><button class="g" onclick="cyc('idees',${e.id})">→</button><button class="g" onclick="del('idees',${e.id})">✕</button></div>`).join('')}</div>`+tr('idees').replace(/<div class="e">[\s\S]*$/,'</div>')],videos:['Vidéos',()=>app('videos')+tr('videos','vues')],nutrition:['Nutrition',()=>app('nutrition')+tr('nutrition','kcal')],sommeil:['Sommeil',()=>tr('sommeil','durée')],muscu:['Sport',()=>app('muscu')+tr('muscu')+tr('poids')],finance:['Finances',()=>app('finance')+tr('finance','montant (€)')],cerveau:['Annexes',cerveau],galerie:['Galerie',galerie]};
+function go(keep){const p=location.hash.slice(1)||'home',pg=PG[p]||PG.home;
+ $('#nav').innerHTML=ORD.map(k=>(GR[k]&&k!='home'?'<hr>':'')+`<a href="#${k}" class="${k==p?'on':''}">${PG[k][0]}</a>`).join('');
+ $('#main').innerHTML=`<h1>${pg[0]}</h1>`+pg[1]();
+ if(keep){const i=$('#'+keep);i.focus();i.setSelectionRange(i.value.length,i.value.length)}}
+addEventListener('hashchange',()=>{Q='';go()});go();
+</script>
+<script type="module">
+const C=window.FIREBASE_CONFIG;
+if(C&&C.apiKey){
+const B='https://www.gstatic.com/firebasejs/10.14.1/';
+const[{initializeApp},{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged},{getFirestore,doc,setDoc,onSnapshot}]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);
+const app=initializeApp(C),au=getAuth(app),db=getFirestore(app);let ref=null,un=null,tm=null;
+const body=()=>{const{galerie,...r}=D;return JSON.stringify(r)};
+const send=()=>{if(!ref)return;D.u=D.u||Date.now();setDoc(ref,{d:body(),u:D.u}).catch(()=>{})};
+window.push=()=>{clearTimeout(tm);tm=setTimeout(send,700)};
+window.login=()=>signInWithPopup(au,new GoogleAuthProvider()).catch(e=>alert('Connexion impossible : '+e.code));
+window.logout=()=>signOut(au);
+onAuthStateChanged(au,u=>{if(un)un();un=null;ref=null;window.user=u;
+ if(u){ref=doc(db,'users',u.uid);un=onSnapshot(ref,s=>{const r=s.data();
+  if(!r)send();
+  else if(r.u>(D.u||0)){const g=D.galerie||[];D=JSON.parse(r.d);D.galerie=g;D.u=r.u;save(1);go()}
+  else if(r.u<(D.u||0))send()})}
+ go()});
+}
+</script></body></html>
